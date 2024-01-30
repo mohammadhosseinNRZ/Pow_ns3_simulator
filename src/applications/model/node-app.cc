@@ -82,9 +82,9 @@ void NodeApp::StartApplication () {
         iter++;
     }
 
-    // if (is_leader == 1) {
+    if (is_leader == 1) {
         Simulator::Schedule (Seconds(getRandomDelay()), &NodeApp::sendMessage, this);
-    // }
+    }
 
 }
 
@@ -93,7 +93,7 @@ void NodeApp::sendMessage(void) {
     memset(target, 0, sizeof(target));
     /* too hard?: try target[2] = 0xFF
        too easy?: try target[2] = 0x01 */
-    target[2] = 0x0F;
+    target[2] = 0;
     std::string myString = "Hello Blockchain"  + std::to_string(GetNode ()->GetId ());
     std::vector<uint8_t> myVector(myString.begin(), myString.end());
     uint8_t *data = &myVector[0];
@@ -106,50 +106,26 @@ void NodeApp::sendMessage(void) {
 
     // Build a new block using the last block in the ledger as the previous block
     block_header_t newBlock = build_block(previousBlock, reinterpret_cast<const char*>(data), myString.size());
+
     newBlock.block_number = static_cast<uint32_t>(ledger.size());;
+
     mine_block(&newBlock, target);
+    
+
     // Add the new block to the ledger
     ledger.push_back(newBlock);
     std::string blocString = blockToString(newBlock);
 
-    NS_LOG_INFO("Node " << GetNode ()->GetId () <<  "blocToString :" << blocString);
+    // NS_LOG_INFO("Node " << GetNode ()->GetId () <<  "blocToString :" << blocString);
     std::vector<uint8_t> myVector2(blocString.begin(), blocString.end());
     uint8_t *data2 = &myVector2[0];
-    // const uint8_t* dataArray = reinterpret_cast<const uint8_t*>(blocString.c_str());
-    // int dataSize = blocString.size();
-    // Print information about the new block (you can modify this part)
-    // NS_LOG_INFO( "Node " << GetNode ()->GetId () <<  "New Block Mined:");
-    // NS_LOG_INFO("Node " << GetNode ()->GetId () << "  Contents Length: " << newBlock.contents_length);
-    // NS_LOG_INFO("Node " << GetNode ()->GetId () << "  Previous Hash: " );
-    // fprint_hash_for_log(newBlock.previous_hash);
-    // // fprint_hash(stdout, newBlock.previous_hash);
-    NS_LOG_INFO("Node " << GetNode ()->GetId () << "  Contents Hash: " );
-    // fprint_hash_for_log(newBlock.contents_hash);
-    // // fprint_hash(stdout, newBlock.contents_hash);
-    // NS_LOG_INFO("Node " << GetNode ()->GetId () << "  Timestamp: " << newBlock.timestamp);
-    // NS_LOG_INFO("Node " << GetNode ()->GetId () << "  Nonce: " << newBlock.nonce);
 
-    // Now you can proceed to send the transaction to neighbors
-    // NS_LOG_INFO("size of blocScreen"<<sizeof(blocString) );
+    // NS_LOG_INFO("Node " << GetNode ()->GetId () << "  Contents Hash: " );
+    
     NodeApp::SendTX(data2, sizeof(blocString)*8);
-  // std::string myString = "Hello Blockchain";
-  // std::vector<uint8_t> myVector(myString.begin(), myString.end());
-  // uint8_t *data = &myVector[0];
-  // NodeApp::SendTX(data, sizeof(myString));
+  
 }
 
-std::string sha256(const std::string& str) {
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha256;
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, str.c_str(), str.size());
-    SHA256_Final(hash, &sha256);
-    std::string hashStr;
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i) {
-        hashStr += hash[i];
-    }
-    return hashStr;
-}
 void NodeApp::fprint_hash_for_log(uint8_t* hash)
 {
     std::ostringstream hashStream;
@@ -180,6 +156,16 @@ block_header_t NodeApp::build_block(const block_header_t* previous, const char* 
     calc_sha_256(header.contents_hash, contents, length);
     return header;
 }
+
+bool hasZeroByte(const uint8_t* array, size_t size) {
+    for (size_t i = 0; i < size; ++i) {
+        if (array[i] == 0x00) {
+            return true; // Found a zero byte
+        }
+    }
+    return false; // No zero byte found
+}
+
 void NodeApp::mine_block(block_header_t* header, const uint8_t* target)
 {
     while (1)
@@ -189,34 +175,23 @@ void NodeApp::mine_block(block_header_t* header, const uint8_t* target)
 
        uint8_t block_hash[32];
 
-for (uint32_t i = 0; i < UINT32_MAX; ++i)
-{
-    header->nonce = i;
-    calc_sha_256(block_hash, header, sizeof(block_header_t));
+    for (uint32_t i = 0; i < UINT32_MAX; ++i)
+        {
+            header->nonce = i;
+            calc_sha_256(block_hash, blockToString(*header).data(), blockToString(*header).length() );
 
-    if (memcmp(block_hash, target, sizeof(block_hash)) < 0){
-
-    NS_LOG_INFO("checked hash:");
-    fprint_hash_for_log(block_hash);
-    NS_LOG_INFO(blockToString(*header));
-   
-    // block_header_t newBloc = stringToBlock(blockToString(*header));
-    block_header_t* newBloc= new block_header_t;
-    newBloc->block_number = header->block_number;
-    memcpy(newBloc->contents_hash, header->contents_hash, sizeof(header->contents_hash));
-    memcpy(newBloc->previous_hash, header->previous_hash, sizeof(header->previous_hash));
-    newBloc->contents_length = header->contents_length;
-    newBloc->nonce = header->nonce;
-    newBloc->timestamp = header->timestamp;
-    NS_LOG_INFO(blockToString(*newBloc));
-    NS_LOG_INFO(check_validiation(newBloc,target));
-
-
-        return;
-
-    }
-        /* we found a good hash */
-}
+            if (hasZeroByte(block_hash, sizeof(block_hash))){
+                NS_LOG_INFO("\n");
+                NS_LOG_INFO("*******************Node " << GetNode ()->GetId () << " Block Mined************ " );
+                NS_LOG_INFO(blockToString(*header));
+                NS_LOG_INFO(blockToString(*header).length());
+                fprint_hash_for_log(block_hash);
+                NS_LOG_INFO(header -> nonce);
+                NS_LOG_INFO("\n");
+                return;
+            }
+                /* we found a good hash */
+        }
  
         /* The uint32 expired without finding a valid hash.
            Restart the time, and hope that this time + nonce combo works. */
@@ -225,17 +200,22 @@ for (uint32_t i = 0; i < UINT32_MAX; ++i)
     /* this should never happen */
     // assert(0);
 }
-bool NodeApp::check_validiation(block_header_t* header, const uint8_t* target){
-uint8_t block_hash[32];
-calc_sha_256(block_hash, header, sizeof(block_header_t));
-    NS_LOG_INFO("checked hash2:");
+bool NodeApp::check_validation(block_header_t* header, const uint8_t* target){
+    uint8_t block_hash[32];
+    calc_sha_256(block_hash, blockToString(*header).data(), blockToString(*header).length() );
+
+    NS_LOG_INFO("\n");
+    NS_LOG_INFO("*******************Node " << GetNode ()->GetId () << " CHECK BLOCK VALIDATION ************ " );
+    NS_LOG_INFO(blockToString(*header));
+    NS_LOG_INFO(header -> nonce);
     fprint_hash_for_log(block_hash);
-if (memcmp(block_hash, target, sizeof(block_hash)) < 0){
-    return true;
-}
-else {
-    return false;
-}
+    NS_LOG_INFO("\n");
+    if (hasZeroByte(block_hash, sizeof(block_hash))){
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 void NodeApp::fprint_hash(FILE* f, uint8_t* hash)
 {
@@ -390,21 +370,13 @@ void NodeApp::HandleRead (Ptr<Socket> socket)
         {
             std::string msg = getPacketContent(packet, from);
             
-// NS_LOG_INFO(packet->GetSize ());
-            // NS_LOG_INFO("Node " << GetNode ()->GetId () << " Received Message:" << msg);
             block_header_t newBloc = stringToBlock(msg);
-        // NS_LOG_INFO("Node " << GetNode ()->GetId () <<  "blocToString     :" << blockToString(newBloc));
 
-            if(check_validiation(&newBloc, target)){
-
-            ledger.push_back(newBloc);
-
-NS_LOG_INFO("Node " << GetNode ()->GetId () << " bloc added2: " );
+            if(check_validation(&newBloc, target)){
+                ledger.push_back(newBloc);
+                NS_LOG_INFO("Node " << GetNode ()->GetId () << " bloc added2: " );
             }else{
-NS_LOG_INFO("Node " << GetNode ()->GetId () << "wrong sha" );
-
-
-
+                NS_LOG_INFO("Node " << GetNode ()->GetId () << "wrong sha" );
             }
 
         }

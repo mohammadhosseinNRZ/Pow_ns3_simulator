@@ -62,7 +62,7 @@ class NodeApp : public Application
     void fprint_hash_for_log(uint8_t* hash);
     void hexStringToByteArray(const std::string& hex, uint8_t* result, size_t length);
     block_header_t stringToBlock(const std::string& str);
-    bool check_validiation(block_header_t* header, const uint8_t* target);
+    bool check_validation(block_header_t* header, const uint8_t* target);
     std::string getPacketContent(Ptr<Packet> packet, Address from); 
 
     void SendTX(uint8_t data[], int num);
