@@ -56,20 +56,20 @@ class NodeApp : public Application
     block_header_t build_block(const block_header_t* previous, const char* contents, uint64_t length);
     void mine_block(block_header_t* header, const uint8_t* target);
     std::string blockToString(const block_header_t &block);
+    block_header_t stringToBlock(const std::string& str);
     // block_header_t stringToBlock(const std::string &str);
     void HandleRead (Ptr<Socket> socket);
-    void fprint_hash(FILE* f, uint8_t* hash);
+    bool isEqual(const uint8_t arr1[32], const uint8_t arr2[32]);
     void fprint_hash_for_log(uint8_t* hash);
     void hexStringToByteArray(const std::string& hex, uint8_t* result, size_t length);
-    block_header_t stringToBlock(const std::string& str);
     bool check_validation(block_header_t* header, const uint8_t* target);
     std::string getPacketContent(Ptr<Packet> packet, Address from); 
-
+    bool isPrevious(const block_header_t& ledgerBlock ,const block_header_t& newBloc);
     void SendTX(uint8_t data[], int num);
-   
     void sendMessage(void);
   private:
     std::list<block_header_t> ledger; 
+    std::list<std::list<block_header_t>> list_of_ledgers;
     uint8_t target[32];
 };
 }
